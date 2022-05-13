@@ -72,7 +72,7 @@ app.post('/send', urlencodedParser, (req, res)=>{
         <h4>Message</h4>
         <p>${req.body.message}</p>
         <div style="display: flex; flex-direction: row; justify-content: center; align-items: flex-start; width: 100%;">
-            <img style="height: 30px; width: 30px;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
+            <img style="scale: 0.5;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
             <h1>Lanscaping Inc.</h1>
         </div>
     `
