@@ -5,7 +5,7 @@ const app = express()
 const mailer = require('nodemailer')
 const exphdlbrs = require('express-handlebars')
 const request = require('request')
-const PORT = process.env.PORT || 4000
+//const PORT = process.env.PORT || 4000
 require('dotenv').config(); 
 
 let urlencodedParser = bodyParser.urlencoded({ extended: true })
@@ -15,9 +15,10 @@ app.use(bodyParser.json())
 
 app.use(cors())
 
+/*
 app.listen(PORT, ()=>{
     console.log(`listening on port ${PORT}`)
-})
+}) */
 
 app.get('/', (req, res)=> {
     res.send('<h1>A One Landscaping Mail Proxy</h1>');
@@ -71,9 +72,9 @@ app.post('/send', urlencodedParser, (req, res)=>{
         </ul>
         <h4>Message</h4>
         <p>${req.body.message}</p>
-        <div style="display: flex; flex-direction: row; justify-content: center; align-items: flex-start; width: 100%;">
+        <div style="display: flex; flex-direction: row; justify-content: center; align-items: flex-start; width: 100%; background-color: light-gray;">
             <img style="scale: 0.5;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
-            <h1>Lanscaping Inc.</h1>
+            <h1 style="margin: 0;">Lanscaping Inc.</h1>
         </div>
     `
 
