@@ -4,9 +4,14 @@ const express = require('express')
 const app = express()
 const mailer = require('nodemailer')
 const exphdlbrs = require('express-handlebars')
+const request = require('request')
 const PORT = process.env.PORT || 4000
+require('dotenv').config(); 
 
 let urlencodedParser = bodyParser.urlencoded({ extended: true })
+
+app.use(bodyParser.urlencoded({entended: false}))
+app.use(bodyParser.json())
 
 app.use(cors())
 
@@ -15,51 +20,87 @@ app.listen(PORT, ()=>{
 })
 
 app.get('/', (req, res)=> {
-    res.send('<h1>A1 Mail Proxy</h1>');
+    res.send('<h1>A One Landscaping Mail Proxy</h1>');
 });
+
+app.post('/verify', (req, res)=>{    
+    const verifyUrl =`https://www.google.com/recaptcha/api/siteverify?secret=${process.env.SECRET_CAPTCHA_KEY}&response=${req.body.captcha}&remoteip=${req.socket.remoteAddress}`
+
+    request(verifyUrl, (err, response, body) => {
+        body = JSON.parse(body);
+
+        if(req.body.captcha === "" ||
+        req.body.captcha === undefined ||
+        req.body.captcha === null ){
+            return res.json({"success": false, "msg":"Captcha not filled out"});
+        }
+
+        if(body.success !== undefined && !body.success){
+            return res.json({"success": false, "msg":"Failed the captcha verification"});
+        }
+
+        return res.json({"success": true, "msg":"Passed the captcha"});
+    })
+
+})  
 
 app.post('/send', urlencodedParser, (req, res)=>{
     console.log(req.body)
 
+    let service;
+
+    switch(req.body.service == 0){
+        case 0:
+            service = "Snow Removal";
+        case 1:
+            service = "Hardscaping";
+        case 2:
+            service = "Landscaping";
+        default:
+            service = "N/A";
+    }
+
     const output = `
-        <h3>You have a new request for a quote!</h3>
-        <h4>Contact Details:</h4>
+        <h2>You have a new request for a quote!</h2>
+        <h3>Contact Details:</h3>
         <ul>
             <li>Name: ${req.body.name}</li>
             <li>Phone No. ${req.body.phone}</li>
             <li>Email: ${req.body.email}</li>
-            <li>Service Type: ${req.body.service}</li>
-            <li>
-                <h5>Message</h5>
-                <br>
-                <p>${req.body.message}</p>
-            </li>
+            <li>Service Type: ${service}</li>
         </ul>
+        <h4>Message</h4>
+        <p>${req.body.message}</p>
+        <div style="display: flex; flex-direction: row; justify-content: center; align-items: flex-start; width: 100%;">
+            <img style="height: 30px; width: 30px;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
+            <h1>Lanscaping Inc.</h1>
+        </div>
     `
 
     let trainsporter = mailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
+        host: 'email-smtp.us-east-1.amazonaws.com',
+        port: 465,
+        secure: true,
         auth: {
-            user: 'leechcalculatorbugs@gmail.com',
-            pass: 'twitter12'
+            user: process.env.EMAIL_USERNAME,
+            pass: process.env.EMAIL_PASSWORD
         },
         tls:{
-            rejectUnauthorized: false
+            rejectUnauthorized: true
         }
     })
 
     let options = {
-        from: '"A1 Landscaping Services" <leechcalculatorbugs@gmail.com',
-        to: req.body.email,
-        subject: 'A1 - We Got Your Message!',
-        text: 'Hi Test, We got your request for a quote!',
+        from: `"A-One Landscaping Services" <services@a-onelandscaping.com`,
+        to: `adamwietczak@a-onelandscaping.com`,
+        subject: `[Quote Request] A-One - You've Got A Message!`,
+        text: `Hello, You\'ve recieved a quote request for ${service} services.`,
         html: output
     }
 
     trainsporter.sendMail(options, (error, info) => {
         if(error){
+            res.status(error)
             return console.log(error)
         }
         console.log('Message sent: %s', info.messageId)
