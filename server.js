@@ -3,19 +3,18 @@ const cors = require('cors')
 const express = require('express')
 const app = express()
 const mailer = require('nodemailer')
-const exphdlbrs = require('express-handlebars')
 const request = require('request')
 //const PORT = process.env.PORT || 4000
 require('dotenv').config(); 
 app.use(cors())
 
 let urlencodedParser = bodyParser.urlencoded({ extended: true })
-
+firebas
 app.use(bodyParser.urlencoded({entended: false}))
 app.use(bodyParser.json())
 
 //app.listen(PORT, ()=>{
-//    console.log(`listening on port ${PORT}`)
+//   console.log(`listening on port ${PORT}`)
 //}) 
 
 app.get('/', (req, res)=> {
