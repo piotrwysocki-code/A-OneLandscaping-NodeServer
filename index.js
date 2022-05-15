@@ -7,18 +7,16 @@ const exphdlbrs = require('express-handlebars')
 const request = require('request')
 //const PORT = process.env.PORT || 4000
 require('dotenv').config(); 
+app.use(cors())
 
 let urlencodedParser = bodyParser.urlencoded({ extended: true })
 
 app.use(bodyParser.urlencoded({entended: false}))
 app.use(bodyParser.json())
 
-app.use(cors())
-
-/*
-app.listen(PORT, ()=>{
-    console.log(`listening on port ${PORT}`)
-}) */
+//app.listen(PORT, ()=>{
+//    console.log(`listening on port ${PORT}`)
+//}) 
 
 app.get('/', (req, res)=> {
     res.send('<h1>A One Landscaping Mail Proxy</h1>');
@@ -73,7 +71,7 @@ app.post('/send', urlencodedParser, (req, res)=>{
         <h4>Message</h4>
         <p>${req.body.message}</p>
         <div style="display: flex; flex-direction: row; justify-content: center; align-items: flex-start; width: 100%; background-color: light-gray;">
-            <img style="scale: 0.5;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
+            <img style="width: 112; height: 81.3;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
             <h1 style="margin: 0;">Lanscaping Inc.</h1>
         </div>
     `
@@ -110,4 +108,3 @@ app.post('/send', urlencodedParser, (req, res)=>{
 
     res.status(200).send(req.body)
 })
-
