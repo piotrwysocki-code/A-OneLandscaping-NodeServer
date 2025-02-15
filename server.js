@@ -1,60 +1,100 @@
-const bodyParser = require('body-parser')
-const express = require('express')
-const axios = require('axios');
-const app = express()
-const cors = require('cors')
-const mailer = require('nodemailer')
-require('dotenv').config()
+const functions = require("firebase-functions");
+const bodyParser = require("body-parser");
+const express = require("express");
+const axios = require("axios");
+const app = express();
+const cors = require("cors");
+const mailer = require("nodemailer");
+const { S3Client, ListObjectsV2Command } = require("@aws-sdk/client-s3");
 
-let urlencodedParser = bodyParser.urlencoded({ extended: true })
+require("dotenv").config();
+
+let urlencodedParser = bodyParser.urlencoded({ extended: true });
+
+const s3Client = new S3Client({
+  region: "ca-central-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ID,
+    secretAccessKey: process.env.AWS_KEY,
+  },
+});
 
 const corsOpts = {
-    origin: [process.env.ORIGIN1, process.env.ORIGIN2],
-    optionsSuccessStatus: 200 
+  origin: [process.env.ORIGIN1, process.env.ORIGIN2],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors());
+
+app.use(bodyParser.urlencoded({ entended: false }));
+app.use(bodyParser.json());
+
+const bucketName = "a1landscaping-images";
+const prefix = "gallery/";
+
+let listImages = async () => {
+  try {
+    const command = new ListObjectsV2Command({
+      Bucket: bucketName,
+      Prefix: prefix,
+    });
+
+    const response = await s3Client.send(command);
+
+    const imageUrls = response.Contents.filter((item) =>
+      item.Key.match(/\.(jpg|jpeg|png|gif)$/i)
+    ).map((item) => `https://${bucketName}.s3.amazonaws.com/${item.Key}`);
+
+    console.log("Image URLs:", imageUrls);
+  } catch (error) {
+    console.error("Error fetching S3 objects:", error);
   }
+};
 
-app.use(cors())
+app.get("/", (req, res) => {
+  res.send("<h1>A One Landscaping Mail Proxy</h1>");
+  listImages();
+});
 
-app.use(bodyParser.urlencoded({entended: false}))
-app.use(bodyParser.json())
+app.get("/", (req, res) => {
+  res.send("<h1>A One Landscaping Mail Proxy</h1>");
+});
 
-app.get('/', (req, res)=> {
-        res.send('<h1>A One Landscaping Mail Proxy</h1>')
-})
+app.post("/send", urlencodedParser, (req, res) => {
+  console.log("hello");
+  axios
+    .post(
+      `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.SECRET_CAPTCHA_KEY}&response=${req.body.captcha}`
+    )
+    .then((response) => {
+      if (response.data.success == true) {
+        if (
+          /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(req.body.email)
+        ) {
+          let service = "";
 
-app.post('/send', urlencodedParser, (req, res)=>{
-    console.log('hello');
-    axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${process.env.SECRET_CAPTCHA_KEY}&response=${req.body.captcha}`)
-    .then((response)=>{
-        if(response.data.success == true){
-            if((/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/).test(req.body.email)){
-                let service = '';
+          console.log(response.data);
 
-                console.log(response.data);
+          switch (req.body.service) {
+            case "1":
+              service = "Landscaping";
+              break;
 
-                switch(req.body.service){
-                    case '1':
-                        service = "Landscaping";
-                        break;
+            case "2":
+              service = "Hardscaping";
+              break;
 
+            case "3":
+              service = "Snow Removal";
+              break;
 
-                    case '2':
-                        service = "Hardscaping";
-                        break;
+            default:
+              service = "";
+          }
 
+          console.log(service);
 
-                    case '3':
-                        service = "Snow Removal";
-                        break;
-
-                        
-                    default:
-                        service = "";
-                }
-
-                console.log(service);
-            
-                const output = `
+          const output = `
                     <h2>You have a new request for a quote!</h2>
                     <hr>
                     <h3>Contact Details:</h3>
@@ -71,37 +111,36 @@ app.post('/send', urlencodedParser, (req, res)=>{
                         <img style="max-height: 50px;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
                         <h2 style="margin: 0; color: lightgray;">Landscaping Inc.</h2>
                     </div>
-                `
-            
-                let transporter = mailer.createTransport({
-                    host: process.env.SMTP_HOST,
-                    port: 465,
-                    secure: true,
-                    auth: {
-                        user: process.env.EMAIL_USERNAME,
-                        pass: process.env.EMAIL_PASSWORD
-                    },
-                    tls:{
-                        rejectUnauthorized: true
-                    }
-                })
-            
-                let options = {
-                    from: `"A-One Landscaping Services" ${process.env.EMAIL_USERNAME}`,
-                    to: process.env.A_ONE_EMAIL,
-                    subject: `[Quote Request] A-One - You've Got A Message!`,
-                    text: `Hello, You've recieved a quote request for ${service} services.`,
-                    html: output
-                }
-            
-        
-                transporter.sendMail(options, (error, info) => {
-                    if(error){
-                        console.log(error);
-                        return res.json({"Success": false, "msg":"unknownk error"});
-                    }else{
-                        console.log('Message sent: %s', info)
-                        let confirmMsg = `
+                `;
+
+          let transporter = mailer.createTransport({
+            host: process.env.SMTP_HOST,
+            port: 465,
+            secure: true,
+            auth: {
+              user: process.env.EMAIL_USERNAME,
+              pass: process.env.EMAIL_PASSWORD,
+            },
+            tls: {
+              rejectUnauthorized: true,
+            },
+          });
+
+          let options = {
+            from: `"A-One Landscaping Services" ${process.env.EMAIL_USERNAME}`,
+            to: process.env.A_ONE_EMAIL,
+            subject: `[Quote Request] A-One - You've Got A Message!`,
+            text: `Hello, You've recieved a quote request for ${service} services.`,
+            html: output,
+          };
+
+          transporter.sendMail(options, (error, info) => {
+            if (error) {
+              console.log(error);
+              return res.json({ Success: false, msg: "unknownk error" });
+            } else {
+              console.log("Message sent: %s", info);
+              let confirmMsg = `
                             <h2>Successful Delivery!</h2>
                             <hr>
                             <h3>Details:</h3>
@@ -122,46 +161,47 @@ app.post('/send', urlencodedParser, (req, res)=>{
                             <img style="max-height: 50px;" src="https://a1landscaping.s3.ca-central-1.amazonaws.com/img/a1-logo.png"/>
                             <h2 style="margin: 0; color: lightgray;">Landscaping Inc.</h2>
                         </div>
-                        `
-            
-                        let confirmOpts = {
-                            from: process.env.EMAIL_USERNAME,
-                            to: req.body.email,
-                            subject: `A-One Landscaping - Delivery Status`,
-                            text: `Hi ${req.body.name}, your message to A-One Landscaping has
+                        `;
+
+              let confirmOpts = {
+                from: process.env.EMAIL_USERNAME,
+                to: req.body.email,
+                subject: `A-One Landscaping - Delivery Status`,
+                text: `Hi ${req.body.name}, your message to A-One Landscaping has
                             been successfully delivered.`,
-                            html: confirmMsg,
-                        }
-        
-                        transporter.sendMail(confirmOpts, (error, info) => {
-                            if(error){
-                                console.log(error);
-                                return res.json({Success: false, "msg":"unknownk error"});
-                            }else{
-                                console.log('Confirmation message sent: %s', info.accepted)
-                                return res.json({Success: true, "msg":"Successfully delivered"});
-                            }
-                        })
-                    }
-                })
-            }else{
-                console.log("Email not formatted properly");
-                return res.json({Success: false, "msg":"Email not formatted properly"});
+                html: confirmMsg,
+              };
+
+              transporter.sendMail(confirmOpts, (error, info) => {
+                if (error) {
+                  console.log(error);
+                  return res.json({ Success: false, msg: "unknownk error" });
+                } else {
+                  console.log("Confirmation message sent: %s", info.accepted);
+                  return res.json({
+                    Success: true,
+                    msg: "Successfully delivered",
+                  });
+                }
+              });
             }
-        }else{
-            console.log("Captcha verification failed");
-            return res.json({Success: false, "msg":"Captcha verification failed"});
+          });
+        } else {
+          console.log("Email not formatted properly");
+          return res.json({
+            Success: false,
+            msg: "Email not formatted properly",
+          });
         }
-    }).catch((error)=>{
-        console.log(error);
-        return res.json({Success: false, "msg": error});
+      } else {
+        console.log("Captcha verification failed");
+        return res.json({ Success: false, msg: "Captcha verification failed" });
+      }
     })
+    .catch((error) => {
+      console.log(error);
+      return res.json({ Success: false, msg: error });
+    });
+});
 
-
-})
-
-app.listen(PORT, ()=>{
-    console.log(`listening on port ${PORT}`);
-})
-
-
+exports.app = functions.https.onRequest(app);
